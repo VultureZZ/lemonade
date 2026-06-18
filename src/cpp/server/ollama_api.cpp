@@ -1,4 +1,5 @@
 #include "lemon/ollama_api.h"
+#include "lemon/model_resolution.h"
 #include "lemon/model_types.h"
 #include <iostream>
 #include <lemon/utils/aixlog.hpp>
@@ -234,30 +235,32 @@ std::string OllamaApi::normalize_model_name(const std::string& name) {
 // ============================================================================
 // auto-load model if needed (mirrors Server::auto_load_model_if_needed)
 // ============================================================================
-void OllamaApi::auto_load_model(const std::string& model) {
+std::string OllamaApi::auto_load_model(const std::string& model) {
     std::string name = normalize_model_name(model);
+    std::string effective = resolve_model_with_default(name, model_manager_);
 
-    if (router_->is_model_loaded(name)) {
-        return;
+    if (router_->is_model_loaded(effective)) {
+        return effective;
     }
 
-    LOG(INFO, "OllamaApi") << "Auto-loading model: " << name << std::endl;
+    LOG(INFO, "OllamaApi") << "Auto-loading model: " << effective << std::endl;
 
-    if (!model_manager_->model_exists(name)) {
+    if (!model_manager_->model_exists(effective)) {
         throw std::runtime_error("model '" + name + "' not found");
     }
 
-    auto info = model_manager_->get_model_info(name);
+    auto info = model_manager_->get_model_info(effective);
 
     // Download if not cached
-    if (info.recipe != "flm" && !model_manager_->is_model_downloaded(name)) {
+    if (info.recipe != "flm" && !model_manager_->is_model_downloaded(effective)) {
         LOG(INFO, "OllamaApi") << "Model not cached, downloading..." << std::endl;
         model_manager_->download_registered_model(info, true);
-        info = model_manager_->get_model_info(name);
+        info = model_manager_->get_model_info(effective);
     }
 
-    router_->load_model(name, info, RecipeOptions(info.recipe, json::object()), true);
-    LOG(INFO, "OllamaApi") << "Model loaded: " << name << std::endl;
+    router_->load_model(effective, info, RecipeOptions(info.recipe, json::object()), true);
+    LOG(INFO, "OllamaApi") << "Model loaded: " << effective << std::endl;
+    return effective;
 }
 
 // build Ollama model entry from ModelInfo
@@ -713,7 +716,7 @@ void OllamaApi::handle_chat(const httplib::Request& req, httplib::Response& res)
 
         // Auto-load the model
         try {
-            auto_load_model(model);
+            model = auto_load_model(model);
         } catch (const std::exception& e) {
             log_ollama_model_not_found(req, model);
             res.status = 404;
@@ -727,6 +730,7 @@ void OllamaApi::handle_chat(const httplib::Request& req, httplib::Response& res)
 
         // Convert to OpenAI format
         auto openai_req = convert_ollama_to_openai_chat(request_json);
+        openai_req["model"] = model;
 
         bool has_tools = request_json.contains("tools") &&
                          request_json["tools"].is_array() &&
@@ -846,7 +850,7 @@ void OllamaApi::handle_generate(const httplib::Request& req, httplib::Response& 
         }
 
         try {
-            auto_load_model(model);
+            model = auto_load_model(model);
         } catch (const std::exception& e) {
             log_ollama_model_not_found(req, model);
             res.status = 404;
@@ -868,6 +872,7 @@ void OllamaApi::handle_generate(const httplib::Request& req, httplib::Response& 
         bool stream = request_json.value("stream", true);  // Ollama defaults to streaming
 
         auto openai_req = convert_ollama_to_openai_completion(request_json);
+        openai_req["model"] = model;
 
         if (stream) {
             LOG(INFO, "OllamaApi") << "POST /api/generate - Streaming (model: " << model << ")" << std::endl;
@@ -1277,7 +1282,7 @@ void OllamaApi::handle_embed(const httplib::Request& req, httplib::Response& res
         }
 
         try {
-            auto_load_model(model);
+            model = auto_load_model(model);
         } catch (const std::exception& e) {
             log_ollama_model_not_found(req, model);
             res.status = 404;
@@ -1345,7 +1350,7 @@ void OllamaApi::handle_embeddings(const httplib::Request& req, httplib::Response
         }
 
         try {
-            auto_load_model(model);
+            model = auto_load_model(model);
         } catch (const std::exception& e) {
             log_ollama_model_not_found(req, model);
             res.status = 404;
