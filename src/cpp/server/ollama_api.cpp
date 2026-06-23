@@ -237,7 +237,7 @@ std::string OllamaApi::normalize_model_name(const std::string& name) {
 // ============================================================================
 std::string OllamaApi::auto_load_model(const std::string& model) {
     std::string name = normalize_model_name(model);
-    std::string effective = resolve_model_with_default(name, model_manager_);
+    std::string effective = resolve_model_for_chat(name, model_manager_);
 
     if (router_->is_model_loaded(effective)) {
         return effective;

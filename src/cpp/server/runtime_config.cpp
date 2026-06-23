@@ -239,6 +239,14 @@ std::string RuntimeConfig::default_model() const {
     return "";
 }
 
+std::string RuntimeConfig::override_model() const {
+    std::shared_lock lock(mutex_);
+    if (config_.contains("override_model") && config_["override_model"].is_string()) {
+        return config_["override_model"].get<std::string>();
+    }
+    return "";
+}
+
 bool RuntimeConfig::enable_dgpu_gtt() const {
     std::shared_lock lock(mutex_);
     return config_["enable_dgpu_gtt"].get<bool>();
@@ -413,9 +421,9 @@ void RuntimeConfig::validate(const std::string& key, const json& value) const {
         if (!value.is_string()) {
             throw std::invalid_argument("'" + key + "' must be a string");
         }
-    } else if (key == "default_model") {
+    } else if (key == "default_model" || key == "override_model") {
         if (!value.is_string()) {
-            throw std::invalid_argument("'default_model' must be a string");
+            throw std::invalid_argument("'" + key + "' must be a string");
         }
     } else if (key == "no_broadcast" || key == "offline" ||
                key == "no_fetch_executables" ||

@@ -13,7 +13,7 @@ import ConnectionSettings from './tabs/ConnectionSettings';
 import TTSSettings from './tabs/TTSSettings';
 import LLMChatSettings from './tabs/LLMChatSettings';
 import { useModels } from './hooks/useModels';
-import { fetchDefaultModel, saveDefaultModel } from './utils/serverRuntimeConfig';
+import { fetchDefaultModel, saveDefaultModel, fetchOverrideModel, saveOverrideModel } from './utils/serverRuntimeConfig';
 
 interface SettingsPanelProps {
   isVisible: boolean;
@@ -50,6 +50,7 @@ const numericSettingsConfig: Array<{
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isVisible, searchQuery = '' }) => {
   const [settings, setSettings] = useState<AppSettings>(createDefaultSettings());
   const [defaultModel, setDefaultModel] = useState('');
+  const [overrideModel, setOverrideModel] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { downloadedModels } = useModels();
@@ -60,6 +61,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isVisible, searchQuery = 
     }
     return Array.from(optionSet).sort((a, b) => a.localeCompare(b));
   }, [downloadedModels, defaultModel]);
+  const overrideModelOptions = useMemo(() => {
+    const optionSet = new Set(downloadedModels.map((model) => model.id));
+    if (overrideModel) {
+      optionSet.add(overrideModel);
+    }
+    return Array.from(optionSet).sort((a, b) => a.localeCompare(b));
+  }, [downloadedModels, overrideModel]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(['connection_settings', 'llm_chat_settings', 'tts_settings'])
   );
@@ -92,6 +100,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isVisible, searchQuery = 
           }
         } catch (error) {
           console.error('Failed to load default model setting:', error);
+        }
+
+        try {
+          const configuredOverrideModel = await fetchOverrideModel();
+          if (isMounted) {
+            setOverrideModel(configuredOverrideModel);
+          }
+        } catch (error) {
+          console.error('Failed to load override model setting:', error);
         }
       } catch (error) {
         console.error('Failed to load settings:', error);
@@ -218,6 +235,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isVisible, searchQuery = 
   const handleReset = () => {
     setSettings(createDefaultSettings());
     setDefaultModel('');
+    setOverrideModel('');
   };
 
   const handleSave = async () => {
@@ -229,6 +247,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isVisible, searchQuery = 
       }
 
       await saveDefaultModel(defaultModel);
+      await saveOverrideModel(overrideModel);
     } catch (error) {
       console.error('Failed to save settings:', error);
       alert('Failed to save settings. Please try again.');
@@ -268,9 +287,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isVisible, searchQuery = 
       id: 'llm_chat_settings',
       label: 'LLM',
       keywords: [
-        'llm', 'chat', 'default model', 'temperature', 'top k', 'top p', 'repeat penalty', 'thinking', 'collapse thinking'
+        'llm', 'chat', 'default model', 'override model', 'temperature', 'top k', 'top p', 'repeat penalty', 'thinking', 'collapse thinking'
       ],
-      settingCount: 7,
+      settingCount: 8,
     },
     {
       id: 'tts_settings',
@@ -306,6 +325,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isVisible, searchQuery = 
           defaultModel={defaultModel}
           defaultModelOptions={defaultModelOptions}
           onDefaultModelChange={setDefaultModel}
+          overrideModel={overrideModel}
+          overrideModelOptions={overrideModelOptions}
+          onOverrideModelChange={setOverrideModel}
           onBooleanChangeFunc={handleBooleanChange}
           onNumericChangeFunc={handleNumericChange}
           onResetFunc={handleResetField}

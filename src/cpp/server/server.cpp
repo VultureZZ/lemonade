@@ -2092,6 +2092,7 @@ void Server::handle_chat_completions(const httplib::Request& req, httplib::Respo
         // Normalize client-provided model names (e.g., strip ":latest" suffix)
         // Must be done before any model_manager/router lookups and before forwarding
         normalize_client_model_name(request_json);
+        apply_chat_model_to_request(request_json, model_manager_.get());
 
         // Debug: Check if tools are present
         if (request_json.contains("tools")) {
@@ -2327,6 +2328,7 @@ void Server::handle_completions(const httplib::Request& req, httplib::Response& 
         // Normalize client-provided model names (e.g., strip ":latest" suffix)
         // Must be done before any model_manager/router lookups and before forwarding
         normalize_client_model_name(request_json);
+        apply_chat_model_to_request(request_json, model_manager_.get());
 
         // Handle model loading/switching (same logic as chat_completions)
         if (request_json.contains("model")) {
@@ -3450,6 +3452,9 @@ void Server::handle_responses(const httplib::Request& req, httplib::Response& re
     try {
         auto request_json = nlohmann::json::parse(req.body);
 
+        normalize_client_model_name(request_json);
+        apply_chat_model_to_request(request_json, model_manager_.get());
+
         // Handle model loading/switching using helper function
         if (request_json.contains("model")) {
             std::string requested_model = request_json["model"];
@@ -3473,7 +3478,7 @@ void Server::handle_responses(const httplib::Request& req, httplib::Response& re
         // Check if streaming is requested
         bool is_streaming = request_json.contains("stream") && request_json["stream"].get<bool>();
 
-        std::string request_body = req.body;
+        std::string request_body = request_json.dump();
 
         if (is_streaming) {
             try {

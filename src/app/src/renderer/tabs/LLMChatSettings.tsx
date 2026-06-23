@@ -14,6 +14,9 @@ interface LLMChatSettingsProps {
   defaultModel: string;
   defaultModelOptions: string[];
   onDefaultModelChange: (model: string) => void;
+  overrideModel: string;
+  overrideModelOptions: string[];
+  onOverrideModelChange: (model: string) => void;
   onBooleanChangeFunc: (key: string | any, value: boolean) => void;
   onNumericChangeFunc: (key: NumericSettingKey, rawValue: number) => void;
   onResetFunc: (key: any) => void
@@ -25,12 +28,35 @@ const LLMChatSettings: React.FC<LLMChatSettingsProps> = ({
   defaultModel,
   defaultModelOptions,
   onDefaultModelChange,
+  overrideModel,
+  overrideModelOptions,
+  onOverrideModelChange,
   onBooleanChangeFunc,
   onNumericChangeFunc,
   onResetFunc,
 }) => {
   return (
     <div className="settings-section-container">
+      <div className="settings-section">
+        <div className="settings-label-row">
+          <label className="settings-label">
+            <span className="settings-label-text">Override Model</span>
+            <span className="settings-description">
+              When set, all chat and completion requests to this server use this model, regardless of the model named in the request. Does not affect embeddings or audio.
+            </span>
+          </label>
+        </div>
+        <select
+          className="settings-text-input"
+          value={overrideModel}
+          onChange={(e) => onOverrideModelChange(e.target.value)}
+        >
+          <option value="">None</option>
+          {overrideModelOptions.map((modelId) => (
+            <option key={modelId} value={modelId}>{modelId}</option>
+          ))}
+        </select>
+      </div>
       <div className="settings-section">
         <div className="settings-label-row">
           <label className="settings-label">

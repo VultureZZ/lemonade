@@ -37,3 +37,12 @@ export async function fetchDefaultModel(): Promise<string> {
 export async function saveDefaultModel(model: string): Promise<void> {
   await updateRuntimeConfig({ default_model: model });
 }
+
+export async function fetchOverrideModel(): Promise<string> {
+  const config = await fetchRuntimeConfig();
+  return typeof config.override_model === 'string' ? config.override_model : '';
+}
+
+export async function saveOverrideModel(model: string): Promise<void> {
+  await updateRuntimeConfig({ override_model: model });
+}

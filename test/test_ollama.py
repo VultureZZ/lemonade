@@ -413,6 +413,83 @@ class OllamaTests(ServerTestBase):
         finally:
             set_server_config({"default_model": ""})
 
+    def test_012c_chat_uses_override_model(self):
+        """Test /api/chat uses configured override_model for all requests."""
+        self.ensure_model_pulled()
+        set_server_config({"override_model": ENDPOINT_TEST_MODEL})
+        try:
+            response = requests.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json={
+                    "model": "gemma3:12b",
+                    "messages": [{"role": "user", "content": "Say hello"}],
+                    "stream": False,
+                    "options": {"num_predict": 10},
+                },
+                timeout=TIMEOUT_MODEL_OPERATION,
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            data = response.json()
+            self.assertEqual(data["model"], ENDPOINT_TEST_MODEL)
+            self.assertTrue(data["done"])
+        finally:
+            set_server_config({"override_model": ""})
+
+    def test_012d_openai_chat_completions_uses_override_model(self):
+        """Test /v1/chat/completions uses configured override_model."""
+        self.ensure_model_pulled()
+        set_server_config({"override_model": ENDPOINT_TEST_MODEL})
+        try:
+            response = requests.post(
+                f"{OLLAMA_BASE_URL}/v1/chat/completions",
+                json={
+                    "model": "gemma3:12b",
+                    "messages": [{"role": "user", "content": "Say hello"}],
+                    "stream": False,
+                    "max_tokens": 10,
+                },
+                timeout=TIMEOUT_MODEL_OPERATION,
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            data = response.json()
+            self.assertEqual(data["model"], ENDPOINT_TEST_MODEL)
+            self.assertTrue(data["choices"])
+        finally:
+            set_server_config({"override_model": ""})
+
+    def test_012e_embeddings_not_affected_by_override_model(self):
+        """Test /v1/embeddings does not redirect to override_model."""
+        self.ensure_model_pulled()
+        set_server_config({"override_model": ENDPOINT_TEST_MODEL})
+        try:
+            response = requests.post(
+                f"{OLLAMA_BASE_URL}/v1/embeddings",
+                json={
+                    "model": "unknown-embedding-model",
+                    "input": "hello",
+                },
+                timeout=TIMEOUT_DEFAULT,
+            )
+            self.assertNotEqual(response.status_code, 200)
+        finally:
+            set_server_config({"override_model": ""})
+
+    def test_012f_clear_override_model_restores_normal_routing(self):
+        """Test clearing override_model stops redirecting chat requests."""
+        self.ensure_model_pulled()
+        set_server_config({"override_model": ENDPOINT_TEST_MODEL})
+        set_server_config({"override_model": ""})
+        response = requests.post(
+            f"{OLLAMA_BASE_URL}/api/chat",
+            json={
+                "model": "unknown-model-for-override-clear-test",
+                "messages": [{"role": "user", "content": "Say hello"}],
+                "stream": False,
+            },
+            timeout=TIMEOUT_DEFAULT,
+        )
+        self.assertEqual(response.status_code, 404)
+
     def test_013_chat_with_latest_suffix(self):
         """Test /api/chat strips :latest suffix from model name."""
         self.ensure_model_pulled()

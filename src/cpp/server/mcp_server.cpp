@@ -17,6 +17,7 @@
 #include <lemon/utils/aixlog.hpp>
 
 #include "lemon/collection_orchestrator.h"
+#include "lemon/model_resolution.h"
 #include "lemon/model_types.h"
 #include "lemon/utils/json_utils.h"
 #include "lemon/utils/path_utils.h"
@@ -481,7 +482,7 @@ json McpServer::tool_chat(const json& arguments) {
     auto resolved = resolve_model_for_tool(arguments, ModelType::LLM, "llm",
                                            kDefaultChatModel, allow_download);
     if (std::holds_alternative<json>(resolved)) return std::get<json>(resolved);
-    const std::string model = std::get<std::string>(resolved);
+    std::string model = resolve_model_for_chat(std::get<std::string>(resolved), model_manager_);
 
     if (auto err = unsupported_model_error(model_manager_, model, "chat", {"llamacpp"})) {
         return *err;
